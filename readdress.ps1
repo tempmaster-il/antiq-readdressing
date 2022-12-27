@@ -1,7 +1,7 @@
 ﻿function LifeCheck {
     param (
         $Instance
-    )
+        )
     .\bacrp.exe $Instance 8 1 44
 }
 
@@ -20,7 +20,7 @@ function WriteAddressAtomicFile {
         $FileName
     )
     # It's file instance 1
-    .\bacwf.exe $DeviceInstance 1 "$FileName.F1"
+    .\bacawf.exe $DeviceInstance 1 "$FileName.F1"
 }
 
 function RestartDevice {
@@ -37,13 +37,13 @@ function IfExistMoveToTemp {
     )
     foreach ($OccupierDevice in $CSV) {
         if ($OccupierDevice.CurrentMAC -eq $DesiredMAC) {
-            $TempMac = $OccupierDevice.CurrentMAC + ($TempRange * 100)
+            $TempMac = [int]($OccupierDevice.CurrentMAC) + $TempPrefix
             #Readdress -CurrentInstance $OccupierDevice.CurrentInstance -CurrentMAC $OccupierDevice.CurrentMAC -NewInstance $OccupierDevice.CurrentInstance -NewMAC $TempMac
             #if ($LASTEXITCODE -eq 0) {
                 $OccupierDevice.CurrentMAC = $TempMac
                 $CSV | Export-Csv -Path .\substitution.csv -NoTypeInformation
             #}
-            Break
+            break
         }
     }
 }
@@ -61,11 +61,16 @@ function Readdress {
 }
 
 $Env:BACNET_IFACE = Read-Host "Please enter the BACnet Interface IP"
-$TempRange = Read-Host "Please enter a empty prefix (e.g. 1 = 100, so 22 will moved to 122 temporarly)"
+$TempPrefix = [int](Read-Host "Please enter a empty prefix (e.g. 1 = 100, so 22 will moved to 122 temporarly)") * 100
 $CSV = Import-Csv -Path .\substitution.csv
 
 foreach ($Device in $CSV) {
     IfExistMoveToTemp -DesiredMAC $Device.NewMAC
-    #Readdress -CurrentInstance $Device.CurrentInstance -CurrentMAC $Device.CurrentMAC -NewInstance $Device.NewInstance -NewMAC $Device.NewMAC
+    Readdress -CurrentInstance $Device.CurrentInstance -CurrentMAC $Device.CurrentMAC -NewInstance $Device.NewInstance -NewMAC $Device.NewMAC
     LifeCheck -Instance $Device.NewInstance
+    if ($LASTEXITCODE -eq 0) {
+        $Device.CurrentMAC = $Device.NewMAC
+        $Device.CurrentInstance = $Device.NewInstance
+        $CSV | Export-Csv -Path .\substitution.csv -NoTypeInformation
+    }
 }
