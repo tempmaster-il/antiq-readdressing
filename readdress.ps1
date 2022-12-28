@@ -1,10 +1,9 @@
 ﻿function LifeCheck {
     param (
         $Instance
-        )
+    )
     .\bacrp.exe $Instance 8 1 44
 }
-
 
 function CreateAddressAtomicFile {
     param (
@@ -31,21 +30,16 @@ function RestartDevice {
     .\bacrd.exe $Instance 0 snowman
 }
 
-function IfExistMoveToTemp {
+function  {
     param (
         $DesiredMAC
     )
     foreach ($OccupierDevice in $CSV) {
         if ($OccupierDevice.CurrentMAC -eq $DesiredMAC) {
-            $TempMac = [int]($OccupierDevice.CurrentMAC) + $TempPrefix
-            #Readdress -CurrentInstance $OccupierDevice.CurrentInstance -CurrentMAC $OccupierDevice.CurrentMAC -NewInstance $OccupierDevice.CurrentInstance -NewMAC $TempMac
-            #if ($LASTEXITCODE -eq 0) {
-                $OccupierDevice.CurrentMAC = $TempMac
-                $CSV | Export-Csv -Path .\substitution.csv -NoTypeInformation
-            #}
-            break
+            return $OccupierDevice
         }
     }
+    $OccupierDevice = $null
 }
 function Readdress {
     param (
@@ -54,23 +48,39 @@ function Readdress {
         $NewInstance,
         $NewMAC
     )
-    LifeCheck -Instance $CurrentInstance
+    LifeCheck -Instance $Device.CurrentInstance
     CreateAddressAtomicFile -NewInstance $NewInstance -NewMAC $NewMAC
     WriteAddressAtomicFile -DeviceInstance $CurrentInstance -FileName $NewInstance
     RestartDevice -Instance $CurrentInstance
+    LifeCheck -Instance $Device.NewInstance
 }
 
+Set-PSDebug -Trace 1
 $Env:BACNET_IFACE = Read-Host "Please enter the BACnet Interface IP"
-$TempPrefix = [int](Read-Host "Please enter a empty prefix (e.g. 1 = 100, so 22 will moved to 122 temporarly)") * 100
 $CSV = Import-Csv -Path .\substitution.csv
 
 foreach ($Device in $CSV) {
-    IfExistMoveToTemp -DesiredMAC $Device.NewMAC
-    Readdress -CurrentInstance $Device.CurrentInstance -CurrentMAC $Device.CurrentMAC -NewInstance $Device.NewInstance -NewMAC $Device.NewMAC
-    LifeCheck -Instance $Device.NewInstance
-    if ($LASTEXITCODE -eq 0) {
-        $Device.CurrentMAC = $Device.NewMAC
-        $Device.CurrentInstance = $Device.NewInstance
-        $CSV | Export-Csv -Path .\substitution.csv -NoTypeInformation
+
+    $OccupierDevice = WhoIsOccupierDevice -DesiredMAC $Device.NewMAC
+    if ($null -ne $OccupierDevice) {
+        Readdress -CurrentInstance $OccupierDevice.CurrentInstance -CurrentMAC $OccupierDevice.CurrentMAC -NewInstance $OccupierDevice.CurrentInstance -NewMAC 127
+        Readdress -CurrentInstance $Device.CurrentInstance -CurrentMAC $Device.CurrentMAC -NewInstance $Device.NewInstance -NewMAC $Device.NewMAC
+        Readdress -CurrentInstance $OccupierDevice.CurrentInstance -CurrentMAC 127 -NewInstance $OccupierDevice.CurrentInstance -NewMAC $OccupierDevice.CurrentMAC
     }
+    else {
+        Readdress -CurrentInstance $Device.CurrentInstance -CurrentMAC $Device.CurrentMAC -NewInstance $Device.NewInstance -NewMAC $Device.NewMAC
+    }
+}
+
+function RecursivelyReaddress {
+    param (
+        $FirstDevice
+    )
+    foreach ($SecondDevice in $CSV) {
+        if($FirstDevice.NewMAC -eq $SecondDevice.CurrentMAC) {
+            Readdress $FirstDevice $i
+            RecursivelyReaddress $SecondDevice $i+1
+        }
+    }
+    Readdress $FirstDevice
 }
