@@ -4,7 +4,6 @@
     )
     .\bacrp.exe $Instance 8 1 44
 }
-
 function CreateAddressAtomicFile {
     param (
         $NewInstance,
@@ -12,7 +11,6 @@ function CreateAddressAtomicFile {
     )
     .\BACAF1.EXE $NewInstance $NewMAC "$NewInstance.F1"
 }
-
 function WriteAddressAtomicFile {
     param (
         $DeviceInstance,
@@ -21,7 +19,6 @@ function WriteAddressAtomicFile {
     # It's file instance 1
     .\bacawf.exe $DeviceInstance 1 "$FileName.F1"
 }
-
 function RestartDevice {
     param (
         $Instance
@@ -29,58 +26,42 @@ function RestartDevice {
     # Instance, State 0 (Coldstart), Password
     .\bacrd.exe $Instance 0 snowman
 }
-
-function  {
-    param (
-        $DesiredMAC
-    )
-    foreach ($OccupierDevice in $CSV) {
-        if ($OccupierDevice.CurrentMAC -eq $DesiredMAC) {
-            return $OccupierDevice
-        }
-    }
-    $OccupierDevice = $null
-}
 function Readdress {
     param (
         $CurrentInstance,
-        $CurrentMAC,
         $NewInstance,
+        $CurrentMAC,
         $NewMAC
     )
-    LifeCheck -Instance $Device.CurrentInstance
+    LifeCheck -Instance $CurrentInstance
     CreateAddressAtomicFile -NewInstance $NewInstance -NewMAC $NewMAC
     WriteAddressAtomicFile -DeviceInstance $CurrentInstance -FileName $NewInstance
     RestartDevice -Instance $CurrentInstance
-    LifeCheck -Instance $Device.NewInstance
+    LifeCheck -Instance $NewInstance
 }
-
-Set-PSDebug -Trace 1
+Set-PSDebug -Trace 0
 $Env:BACNET_IFACE = Read-Host "Please enter the BACnet Interface IP"
+$Empty = [int](Read-Host "Please enter the start of a empty range")
 $CSV = Import-Csv -Path .\substitution.csv
-
-foreach ($Device in $CSV) {
-
-    $OccupierDevice = WhoIsOccupierDevice -DesiredMAC $Device.NewMAC
-    if ($null -ne $OccupierDevice) {
-        Readdress -CurrentInstance $OccupierDevice.CurrentInstance -CurrentMAC $OccupierDevice.CurrentMAC -NewInstance $OccupierDevice.CurrentInstance -NewMAC 127
-        Readdress -CurrentInstance $Device.CurrentInstance -CurrentMAC $Device.CurrentMAC -NewInstance $Device.NewInstance -NewMAC $Device.NewMAC
-        Readdress -CurrentInstance $OccupierDevice.CurrentInstance -CurrentMAC 127 -NewInstance $OccupierDevice.CurrentInstance -NewMAC $OccupierDevice.CurrentMAC
-    }
-    else {
-        Readdress -CurrentInstance $Device.CurrentInstance -CurrentMAC $Device.CurrentMAC -NewInstance $Device.NewInstance -NewMAC $Device.NewMAC
-    }
-}
-
 function RecursivelyReaddress {
     param (
         $FirstDevice
     )
     foreach ($SecondDevice in $CSV) {
         if($FirstDevice.NewMAC -eq $SecondDevice.CurrentMAC) {
-            Readdress $FirstDevice $i
-            RecursivelyReaddress $SecondDevice $i+1
+            Readdress -CurrentInstance $SecondDevice.CurrentInstance -CurrentMAC $SecondDevice.CurrentMAC -NewInstance $SecondDevice.CurrentInstance -NewMAC $Empty
+            $SecondDevice.CurrentMAC = $Empty
+            $Empty++
+            RecursivelyReaddress -FirstDevice $SecondDevice
         }
     }
-    Readdress $FirstDevice
+    Readdress -CurrentInstance $FirstDevice.CurrentInstance -CurrentMAC $FirstDevice.CurrentMAC -NewInstance $FirstDevice.NewInstance -NewMAC $FirstDevice.NewMAC
+    $FirstDevice.CurrentMAC = $FirstDevice.NewMAC
 }
+foreach ($Device in $CSV) {
+    if ($Device.CurrentMAC -ne $Device.NewMAC) {
+        RecursivelyReaddress -FirstDevice $Device
+    }
+}
+
+$CSV | Export-Csv -Path .\output.csv -NoTypeInformation

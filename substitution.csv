@@ -1,6 +1,6 @@
-CurrentInstance,CurrentMAC,NewInstance,NewMAC
-1,1,5,5
-2,2,4,4
-3,3,3,3
-4,4,2,2
-5,5,1,1
+CurrentMAC,NewMAC
+1,2
+2,3
+3,4
+4,5
+5,1
