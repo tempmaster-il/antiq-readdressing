@@ -34,6 +34,9 @@ function Readdress {
         $NewMAC
     )
     LifeCheck -Instance $CurrentInstance
+    if ($LASTEXITCODE -ne 0) {
+        return "Not Found"
+    }
     CreateAddressAtomicFile -NewInstance $NewInstance -NewMAC $NewMAC
     WriteAddressAtomicFile -DeviceInstance $CurrentInstance -FileName $NewInstance
     RestartDevice -Instance $CurrentInstance
@@ -49,13 +52,21 @@ function RecursivelyReaddress {
     )
     foreach ($SecondDevice in $CSV) {
         if($FirstDevice.NewMAC -eq $SecondDevice.CurrentMAC) {
-            Readdress -CurrentInstance $SecondDevice.CurrentInstance -CurrentMAC $SecondDevice.CurrentMAC -NewInstance $SecondDevice.CurrentInstance -NewMAC $Empty
+            $SecondDeviceStatus = Readdress -CurrentInstance $SecondDevice.CurrentInstance -CurrentMAC $SecondDevice.CurrentMAC -NewInstance $SecondDevice.CurrentInstance -NewMAC $Empty
+            if ($SecondDeviceStatus -eq "Not Found") {
+                $SecondDevice.Status = "Not Found"
+                break
+            }
             $SecondDevice.CurrentMAC = $Empty
             $Empty++
             RecursivelyReaddress -FirstDevice $SecondDevice
         }
     }
-    Readdress -CurrentInstance $FirstDevice.CurrentInstance -CurrentMAC $FirstDevice.CurrentMAC -NewInstance $FirstDevice.NewInstance -NewMAC $FirstDevice.NewMAC
+    $SecondDeviceStatus = Readdress -CurrentInstance $FirstDevice.CurrentInstance -CurrentMAC $FirstDevice.CurrentMAC -NewInstance $FirstDevice.NewInstance -NewMAC $FirstDevice.NewMAC
+    if ($SecondDeviceStatus -eq "Not Found") {
+        $SecondDevice.Status = "Not Found"
+        return
+    }
     $FirstDevice.CurrentMAC = $FirstDevice.NewMAC
 }
 foreach ($Device in $CSV) {
