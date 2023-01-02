@@ -2,7 +2,7 @@
     param (
         $Instance
     )
-    .\bacrp.exe $Instance 8 1 44
+    .\bacrp.exe $Instance 8 $Instance 44
 }
 function CreateAddressAtomicFile {
     param (
@@ -33,11 +33,12 @@ function Readdress {
         $CurrentMAC,
         $NewMAC
     )
-    LifeCheck -Instance $CurrentInstance
+    #LifeCheck -Instance $CurrentInstance
     CreateAddressAtomicFile -NewInstance $NewInstance -NewMAC $NewMAC
-    WriteAddressAtomicFile -DeviceInstance $CurrentInstance -FileName $NewInstance
-    RestartDevice -Instance $CurrentInstance
-    LifeCheck -Instance $NewInstance
+    #WriteAddressAtomicFile -DeviceInstance $CurrentInstance -FileName $NewInstance
+    #RestartDevice -Instance $CurrentInstance
+    #Start-Sleep -Seconds 3
+    #LifeCheck -Instance $NewInstance
 }
 Set-PSDebug -Trace 0
 $Env:BACNET_IFACE = Read-Host "Please enter the BACnet Interface IP"
