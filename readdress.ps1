@@ -42,25 +42,26 @@ function Readdress {
 }
 Set-PSDebug -Trace 0
 $Env:BACNET_IFACE = Read-Host "Please enter the BACnet Interface IP"
-$Empty = [int](Read-Host "Please enter the start of a empty range")
-$CSV = Import-Csv -Path .\substitution.csv
+#$Empty = [int](Read-Host "Please enter the start of a empty range")
+$CSV = Import-Csv -Path ".\substitution.csv"
 function RecursivelyReaddress {
     param (
         $FirstDevice
     )
-    foreach ($SecondDevice in $CSV) {
-        if($FirstDevice.NewMAC -eq $SecondDevice.CurrentMAC) {
-            Readdress -CurrentInstance $SecondDevice.CurrentInstance -CurrentMAC $SecondDevice.CurrentMAC -NewInstance $SecondDevice.CurrentInstance -NewMAC $Empty
-            $SecondDevice.CurrentMAC = $Empty
-            $Empty++
-            RecursivelyReaddress -FirstDevice $SecondDevice
-        }
-    }
+    # foreach ($SecondDevice in $CSV) {
+    #     if($FirstDevice.NewMAC -eq $SecondDevice.CurrentMAC) {
+    #         Readdress -CurrentInstance $SecondDevice.CurrentInstance -CurrentMAC $SecondDevice.CurrentMAC -NewInstance $SecondDevice.CurrentInstance -NewMAC $Empty
+    #         $SecondDevice.CurrentMAC = $Empty
+    #         $Empty++
+    #         RecursivelyReaddress -FirstDevice $SecondDevice
+    #     }
+    # }
     Readdress -CurrentInstance $FirstDevice.CurrentInstance -CurrentMAC $FirstDevice.CurrentMAC -NewInstance $FirstDevice.NewInstance -NewMAC $FirstDevice.NewMAC
     $FirstDevice.CurrentMAC = $FirstDevice.NewMAC
+    $FirstDevice.CurrentInstance = $FirstDevice.NewInstance
 }
 foreach ($Device in $CSV) {
-    if ($Device.CurrentMAC -ne $Device.NewMAC) {
+    if (($Device.CurrentMAC -ne $Device.NewMAC) -or ($Device.CurrentInstance -ne $Device.NewInstance)) {
         RecursivelyReaddress -FirstDevice $Device
     }
 }
