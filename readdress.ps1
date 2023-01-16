@@ -43,7 +43,7 @@ function Readdress {
 Set-PSDebug -Trace 0
 #$Env:BACNET_IFACE = Read-Host "Please enter the BACnet Interface IP"
 #$Empty = [int](Read-Host "Please enter the start of a empty range")
-$CSV = Import-Csv -Path ".\2Long.csv"
+$CSV = Import-Csv -Path ".\4Long.csv"
 # $Total = (.\bacwi.exe)[-1].Split("; Total Devices: ")[-1]
 $Empty = @()
 $LastOccIndex = 0
@@ -67,7 +67,7 @@ function RecursivelyReaddress {
     foreach ($SecondDevice in $CSV) {
         $EmptyIndex = 0
         if($FirstDevice.NewMAC -eq $SecondDevice.CurrentMAC) {
-            Readdress -CurrentInstance $SecondDevice.CurrentInstance -CurrentMAC $SecondDevice.CurrentMAC -NewInstance $SecondDevice.CurrentInstance -NewMAC $Empty
+            Readdress -CurrentInstance $SecondDevice.CurrentInstance -CurrentMAC $SecondDevice.CurrentMAC -NewInstance $SecondDevice.CurrentInstance -NewMAC $Empty[$EmptyIndex]
             $SecondDevice.CurrentMAC = $Empty[$EmptyIndex]
             $EmptyIndex++
             RecursivelyReaddress -FirstDevice $SecondDevice
